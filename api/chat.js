@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const TOP_K = 4;
 const MAX_HISTORY = 6;
 
