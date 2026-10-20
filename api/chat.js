@@ -10,11 +10,15 @@ const TOP_K = 4;
 const MAX_HISTORY = 6;
 
 // ---- chunk store (loaded once per cold start) ----
+// Site-key aliases: keys that reuse another site's content file
+// (new.thedesignpk.com is the same business as thedesignpk.com).
+const SITE_ALIASES = { newthedesignpk: 'thedesignpk' };
 const storeCache = {};
 function loadSite(site) {
   if (storeCache[site]) return storeCache[site];
   const safe = String(site).replace(/[^a-z0-9-]/gi, '');
-  const p = path.join(__dirname, '..', 'data', `${safe}.json`);
+  const fileKey = SITE_ALIASES[safe] || safe;
+  const p = path.join(__dirname, '..', 'data', `${fileKey}.json`);
   if (!fs.existsSync(p)) return null;
   const data = JSON.parse(fs.readFileSync(p, 'utf8'));
   const chunks = data.chunks || [];

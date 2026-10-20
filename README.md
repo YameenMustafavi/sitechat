@@ -9,6 +9,13 @@ RAG chatbot backend serving multiple sites. Zero-cost design:
 | Site key | Source |
 |---|---|
 | `thedesignpk` | thedesignpk.com (pilot) |
+| `newthedesignpk` | new.thedesignpk.com — alias of `thedesignpk` (same business, shares its data file) |
+| `globalmortgagecalc` | globalmortgagecalc.com |
+| `punjabkhussahouse` | punjabkhussahouse.com |
+| `goldratestoday` | goldratestoday.ae (EN pages) |
+| `goldpricestoday` | goldpricestoday.ca (EN pages) |
+| `mathsolverfree` | mathsolverfree.com (EN pages) |
+| `snowdayplanner` | snowdayplanner.com (EN pages) |
 
 ## API
 POST /api/chat `{ site, message, history? }` → `{ answer, sources[] }`

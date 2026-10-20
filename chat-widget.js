@@ -4,21 +4,22 @@
   var SITE = script.getAttribute('data-site') || 'default';
   var API = (script.getAttribute('data-api') || '').replace(/\/$/, '');
   if (!API) return;
+  var COLOR = script.getAttribute('data-color') || '#fe1f07';
 
   var CSS = `
-  #sc-btn{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:#fe1f07;color:#fff;border:none;cursor:pointer;font-size:24px;z-index:99998;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  #sc-btn{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:' + COLOR + ';color:#fff;border:none;cursor:pointer;font-size:24px;z-index:99998;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   #sc-panel{position:fixed;right:20px;bottom:88px;width:340px;max-width:calc(100vw - 40px);height:440px;max-height:calc(100vh - 120px);background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.2);display:none;flex-direction:column;z-index:99999;font-family:system-ui,-apple-system,sans-serif;overflow:hidden}
   #sc-panel.open{display:flex}
-  #sc-head{background:#fe1f07;color:#fff;padding:12px 14px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+  #sc-head{background:' + COLOR + ';color:#fff;padding:12px 14px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center}
   #sc-head button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
   #sc-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
   .sc-m{padding:8px 11px;border-radius:12px;max-width:85%;line-height:1.45;white-space:pre-wrap}
-  .sc-u{align-self:flex-end;background:#fe1f07;color:#fff}
+  .sc-u{align-self:flex-end;background:' + COLOR + ';color:#fff}
   .sc-a{align-self:flex-start;background:#f1f5f9;color:#111}
-  .sc-src{font-size:11px;margin-top:4px}.sc-src a{color:#fe1f07}
+  .sc-src{font-size:11px;margin-top:4px}.sc-src a{color:' + COLOR + '}
   #sc-form{display:flex;border-top:1px solid #e5e7eb}
   #sc-in{flex:1;border:none;padding:11px 12px;font-size:13.5px;outline:none}
-  #sc-form button{background:#fe1f07;color:#fff;border:none;padding:0 16px;cursor:pointer;font-size:14px}
+  #sc-form button{background:' + COLOR + ';color:#fff;border:none;padding:0 16px;cursor:pointer;font-size:14px}
   .sc-typing{color:#888;font-style:italic}`;
 
   var style = document.createElement('style');
