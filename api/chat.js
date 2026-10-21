@@ -113,25 +113,32 @@ async function askGemini(context, message, history, lang) {
     contents.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.text }] });
   });
   contents.push({ role: 'user', parts: [{ text: `Context:\n${context}\n\nQuestion: ${message}` }] });
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: sys }] },
-        contents,
-        generationConfig: { temperature: 0.3, maxOutputTokens: 400 },
-      }),
+  const payload = JSON.stringify({
+    system_instruction: { parts: [{ text: sys }] },
+    contents,
+    generationConfig: { temperature: 0.3, maxOutputTokens: 400 },
+  });
+  const callOnce = async () => {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }
+    );
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`gemini_${res.status}: ${t.slice(0, 120)}`);
     }
-  );
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`gemini_${res.status}: ${t.slice(0, 120)}`);
+    const j = await res.json();
+    return (j.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '').trim();
+  };
+  /* The free tier drops requests intermittently (observed for all languages,
+     including English) — one retry after a short pause rescues most of them. */
+  try {
+    return await callOnce();
+  } catch (e) {
+    if (String(e.message || e).includes('gemini_429')) throw e;
+    await new Promise((r) => setTimeout(r, 1200));
+    return callOnce();
   }
-  const j = await res.json();
-  const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
-  return text.trim();
 }
 
 module.exports = async (req, res) => {
