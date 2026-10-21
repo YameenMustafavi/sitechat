@@ -74,11 +74,38 @@ function rateLimited(ip) {
   return arr.length > max;
 }
 
-async function askGemini(context, message, history) {
+// ---- multilingual support ----
+// The widget sends `lang` when the visitor picks a language; the bot then
+// answers in that language even though the indexed context is English.
+const LANG_NAMES = {
+  en: 'English', es: 'Spanish', fr: 'French', de: 'German', pt: 'Portuguese',
+  hi: 'Hindi', ur: 'Urdu', ar: 'Arabic', zh: 'Chinese', ru: 'Russian',
+  ja: 'Japanese', id: 'Indonesian',
+};
+const NO_RESULT = {
+  en: "I couldn't find anything about that on this site. Try asking about our services, pricing, or contact info — or reach out via the contact page.",
+  es: 'No encontré información sobre eso en este sitio. Pruebe a preguntar por nuestros servicios, precios o información de contacto, o escríbanos desde la página de contacto.',
+  fr: "Je n'ai rien trouvé à ce sujet sur ce site. Essayez de poser une question sur nos services, nos tarifs ou nos coordonnées, ou contactez-nous via la page de contact.",
+  de: 'Dazu habe ich auf dieser Website nichts gefunden. Fragen Sie gern nach unseren Leistungen, Preisen oder Kontaktinformationen — oder schreiben Sie uns über die Kontaktseite.',
+  pt: 'Não encontrei informações sobre isso neste site. Tente perguntar sobre nossos serviços, preços ou informações de contato, ou fale conosco pela página de contato.',
+  hi: 'मुझे इस वेबसाइट पर इसके बारे में कुछ नहीं मिला। हमारी सेवाओं, कीमतों या संपर्क जानकारी के बारे में पूछकर देखें — या संपर्क पेज से हमसे जुड़ें।',
+  ur: 'مجھے اس ویب سائٹ پر اس بارے میں کچھ نہیں ملا۔ ہماری خدمات، قیمتوں یا رابطے کی معلومات کے بارے میں پوچھ کر دیکھیں — یا رابطہ صفحے سے ہم سے رابطہ کریں۔',
+  ar: 'لم أجد معلومات حول ذلك في هذا الموقع. جرّب أن تسأل عن خدماتنا أو أسعارنا أو معلومات التواصل، أو راسلنا عبر صفحة التواصل.',
+  zh: '我在本网站上没有找到相关信息。您可以询问我们的服务、价格或联系方式，或通过联系页面与我们联系。',
+  ru: 'Я не нашёл информации об этом на сайте. Попробуйте спросить о наших услугах, ценах или контактной информации — или напишите нам через страницу контактов.',
+  ja: 'このサイトではその件に関する情報が見つかりませんでした。サービス、料金、連絡先情報についてご質問いただくか、お問い合わせページからご連絡ください。',
+  id: 'Saya tidak menemukan informasi tentang itu di situs ini. Coba tanyakan tentang layanan, harga, atau info kontak kami — atau hubungi kami melalui halaman kontak.',
+};
+
+async function askGemini(context, message, history, lang) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error('missing_key');
+  const langRule = lang
+    ? `Always reply in ${LANG_NAMES[lang]}, no matter what language the question or the context is written in. `
+    : `Reply in the same language the user writes in. `;
   const sys = `You are a helpful assistant for a website. Answer the user's question using ONLY the context below. ` +
-    `Reply in the same language the user writes in. Be concise (2-5 sentences unless detail is asked). ` +
+    langRule +
+    `Be concise (2-5 sentences unless detail is asked). ` +
     `If the context does not contain the answer, say so briefly and suggest contacting the site owner. ` +
     `Do not invent prices, services, or facts not in the context.`;
   const contents = [];
@@ -119,10 +146,12 @@ module.exports = async (req, res) => {
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
-  const { site, message, history = [] } = body || {};
+  const { site, message, history = [], lang: rawLang } = body || {};
   if (!site || !message || typeof message !== 'string' || message.length > 1000) {
     return res.status(400).json({ error: 'site and message (max 1000 chars) required' });
   }
+  const lang = typeof rawLang === 'string' && LANG_NAMES[rawLang.toLowerCase()]
+    ? rawLang.toLowerCase() : null;
 
   const store = loadSite(site);
   if (!store) return res.status(404).json({ error: `No content indexed for site: ${site}` });
@@ -130,13 +159,13 @@ module.exports = async (req, res) => {
   const top = retrieve(store, message);
   if (!top.length) {
     return res.status(200).json({
-      answer: "I couldn't find anything about that on this site. Try asking about our services, pricing, or contact info — or reach out via the contact page.",
+      answer: NO_RESULT[lang] || NO_RESULT.en,
       sources: [],
     });
   }
   const context = top.map((s, i) => `[${i + 1}] ${s.c.title} (${s.c.url})\n${s.c.text}`).join('\n\n');
   try {
-    const answer = await askGemini(context, message, Array.isArray(history) ? history : []);
+    const answer = await askGemini(context, message, Array.isArray(history) ? history : [], lang);
     const sources = [...new Set(top.map((s) => s.c.url))].slice(0, 3);
     return res.status(200).json({ answer, sources });
   } catch (e) {
