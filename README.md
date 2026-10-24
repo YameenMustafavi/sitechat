@@ -16,6 +16,7 @@ RAG chatbot backend serving multiple sites. Zero-cost design:
 | `goldpricestoday` | goldpricestoday.ca (EN pages) |
 | `mathsolverfree` | mathsolverfree.com (EN pages) |
 | `snowdayplanner` | snowdayplanner.com (EN pages) |
+| `getmanasik` | getmanasik.com (EN pages) |
 
 ## API
 POST /api/chat `{ site, message, history? }` → `{ answer, sources[] }`
