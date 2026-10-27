@@ -113,10 +113,12 @@ async function askGemini(context, message, history, lang) {
     contents.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.text }] });
   });
   contents.push({ role: 'user', parts: [{ text: `Context:\n${context}\n\nQuestion: ${message}` }] });
+  // maxOutputTokens must leave room for the model's thinking tokens on top
+  // of the visible answer — at 400, Urdu answers were cut off mid-sentence.
   const payload = JSON.stringify({
     system_instruction: { parts: [{ text: sys }] },
     contents,
-    generationConfig: { temperature: 0.3, maxOutputTokens: 400 },
+    generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
   });
   const callOnce = async () => {
     const res = await fetch(
