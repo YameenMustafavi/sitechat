@@ -141,6 +141,32 @@ async function askGemini(context, message, history, lang) {
   }
 }
 
+// Cross-lingual fallback: retrieval is exact-token BM25 over mostly-English
+// chunks, so a question written in another language (e.g. Urdu) can score
+// zero even when the site answers it. Only on a zero-hit do we translate the
+// question to English with Gemini and retry retrieval once. Queries that
+// already match are never touched, and any translation failure falls through
+// to the normal NO_RESULT reply.
+async function translateToEnglish(text) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  const payload = JSON.stringify({
+    contents: [{
+      role: 'user',
+      parts: [{ text: `Translate the following question into English. Output ONLY the translation, with no quotes or explanation.\n\n${text}` }],
+    }],
+    generationConfig: { temperature: 0, maxOutputTokens: 120 },
+  });
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }
+  );
+  if (!res.ok) return null;
+  const j = await res.json();
+  const t = (j.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '').trim();
+  return t && t.toLowerCase() !== text.toLowerCase() ? t : null;
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -163,7 +189,13 @@ module.exports = async (req, res) => {
   const store = loadSite(site);
   if (!store) return res.status(404).json({ error: `No content indexed for site: ${site}` });
 
-  const top = retrieve(store, message);
+  let top = retrieve(store, message);
+  if (!top.length) {
+    try {
+      const en = await translateToEnglish(message);
+      if (en) top = retrieve(store, en);
+    } catch { /* translation is best-effort; NO_RESULT below is the fallback */ }
+  }
   if (!top.length) {
     return res.status(200).json({
       answer: NO_RESULT[lang] || NO_RESULT.en,

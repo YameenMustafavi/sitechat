@@ -1,5 +1,13 @@
-"""Crawl a site's sitemap URLs, extract main text, chunk, save JSON."""
-import urllib.request, re, json, sys, html
+"""Crawl a site's sitemap URLs, extract main text, chunk, save JSON.
+
+If pipeline/<site>-curated.json exists, its chunks are appended after the
+crawled ones (deduplicated by url+title). Curated chunks hold hand-checked
+knowledge in languages/phrasings a plain crawl cannot connect to a query
+(e.g. getmanasik's Urdu contact + how-it-works entries, whose facts are
+copied verbatim from the site's own pages/messages). Keep them when
+re-crawling so the fix survives a rebuild.
+"""
+import urllib.request, re, json, sys, html, os
 
 def fetch(url, timeout=25):
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (compatible; SiteChatBot/1.0)'})
@@ -54,6 +62,14 @@ def main(site, url_file):
             print(f'[{i+1}/{len(urls)}] {len(chunks)} chunks — {title[:60]}')
         except Exception as e:
             print(f'[{i+1}/{len(urls)}] FAIL {url}: {e}')
+    curated_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'{site}-curated.json')
+    if os.path.exists(curated_path):
+        curated = json.load(open(curated_path, encoding='utf-8'))
+        seen = {(c['url'], c['title']) for c in all_chunks}
+        for c in curated:
+            if (c['url'], c['title']) not in seen:
+                all_chunks.append(c)
+        print(f'Appended curated chunks from {curated_path} (total now {len(all_chunks)})')
     out = {'site': site, 'chunks': all_chunks}
     path = f'/home/hatch/workspace/sitechat/data/{site}.json'
     json.dump(out, open(path, 'w'), ensure_ascii=False)
