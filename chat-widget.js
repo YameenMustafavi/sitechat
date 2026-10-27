@@ -42,22 +42,23 @@
   function S() { return LANG_META[curLang].s; }
 
   var CSS = `
-  #sc-btn{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:' + COLOR + ';color:#fff;border:none;cursor:pointer;font-size:24px;z-index:99998;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  #sc-btn{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:${COLOR}!important;background-color:${COLOR}!important;color:#fff!important;-webkit-text-fill-color:#fff!important;border:none;cursor:pointer;font-size:24px;z-index:99998;box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:1!important;visibility:visible!important}
   #sc-panel{position:fixed;right:20px;bottom:88px;width:340px;max-width:calc(100vw - 40px);height:440px;max-height:calc(100vh - 120px);background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.2);display:none;flex-direction:column;z-index:99999;font-family:system-ui,-apple-system,sans-serif;overflow:hidden}
   #sc-panel.open{display:flex}
-  #sc-head{background:' + COLOR + ';color:#fff;padding:12px 14px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-  #sc-head span{flex:1}
-  #sc-head button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
+  #sc-head{background:${COLOR}!important;background-color:${COLOR}!important;color:#fff!important;padding:12px 14px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;opacity:1!important;visibility:visible!important}
+  #sc-head span{flex:1;color:#fff!important;-webkit-text-fill-color:#fff!important;opacity:1!important;visibility:visible!important}
+  #sc-head button{background:transparent!important;background-color:transparent!important;border:none;color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:18px;cursor:pointer;width:32px;height:32px;padding:0;line-height:1;display:flex!important;align-items:center;justify-content:center;opacity:1!important;visibility:visible!important}
   #sc-lang{background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:6px;font-size:12px;padding:3px 4px;max-width:118px;cursor:pointer}
   #sc-lang option{color:#111}
   #sc-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
   .sc-m{padding:8px 11px;border-radius:12px;max-width:85%;line-height:1.45;white-space:pre-wrap}
-  .sc-u{align-self:flex-end;background:' + COLOR + ';color:#fff}
+  .sc-u{align-self:flex-end;background:${COLOR}!important;background-color:${COLOR}!important;color:#fff!important;-webkit-text-fill-color:#fff!important}
   .sc-a{align-self:flex-start;background:#f1f5f9;color:#111}
-  .sc-src{font-size:11px;margin-top:4px}.sc-src a{color:' + COLOR + '}
-  #sc-form{display:flex;border-top:1px solid #e5e7eb}
-  #sc-in{flex:1;border:none;padding:11px 12px;font-size:13.5px;outline:none}
-  #sc-form button{background:' + COLOR + ';color:#fff;border:none;padding:0 16px;cursor:pointer;font-size:14px}
+  .sc-src{font-size:11px;margin-top:4px}.sc-src a{color:${COLOR}!important}
+  #sc-form{display:flex;border-top:1px solid #e5e7eb;background:#fff}
+  #sc-in{flex:1;border:none;padding:11px 12px;font-size:13.5px;outline:none;background:#fff!important;color:#111!important;-webkit-text-fill-color:#111!important;opacity:1!important;visibility:visible!important}
+  #sc-send{flex:0 0 auto;background:${COLOR}!important;background-color:${COLOR}!important;color:#fff!important;-webkit-text-fill-color:#fff!important;border:none;padding:0 16px;cursor:pointer;font-size:14px;line-height:1;opacity:.55;filter:saturate(.75);visibility:visible!important}
+  #sc-send.sc-ready{opacity:1!important;filter:none}
   .sc-typing{color:#888;font-style:italic}`;
 
   var style = document.createElement('style');
@@ -74,15 +75,16 @@
       return '<option value="' + c + '">' + LANG_META[c].name + '</option>';
     }).join('') + '</select>';
   }
-  headHtml += '<button id="sc-x">&times;</button></div>';
+  headHtml += '<button type="button" id="sc-x" aria-label="Close chat">&times;</button></div>';
   panel.innerHTML = headHtml +
     '<div id="sc-msgs"></div>' +
-    '<form id="sc-form"><input id="sc-in" autocomplete="off"/><button type="submit">&#10148;</button></form>';
+    '<form id="sc-form"><input id="sc-in" autocomplete="off"/><button type="submit" id="sc-send" aria-label="Send message" aria-disabled="true">&#10148;</button></form>';
   document.body.appendChild(btn); document.body.appendChild(panel);
 
   var msgs = panel.querySelector('#sc-msgs');
   var titleEl = panel.querySelector('#sc-title');
   var input = panel.querySelector('#sc-in');
+  var sendBtn = panel.querySelector('#sc-send');
   var langSel = panel.querySelector('#sc-lang');
   var history = [];
   var greetingEl = null;
@@ -119,8 +121,16 @@
       applyLang();
     };
   }
+  function syncSendState() {
+    var ready = !!input.value.trim();
+    sendBtn.classList.toggle('sc-ready', ready);
+    sendBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+  }
+  input.addEventListener('input', syncSendState);
+
   greetingEl = addMsg(S().greeting, 'a');
   applyLang();
+  syncSendState();
 
   btn.onclick = function () { panel.classList.toggle('open'); };
   panel.querySelector('#sc-x').onclick = function () { panel.classList.remove('open'); };
@@ -129,6 +139,7 @@
     var text = input.value.trim();
     if (!text) return;
     input.value = '';
+    syncSendState();
     addMsg(text, 'u');
     history.push({ role: 'user', text: text });
     var typing = addMsg(S().typing, 'a'); typing.classList.add('sc-typing');
