@@ -55,6 +55,7 @@
   .sc-u{align-self:flex-end;background:${COLOR}!important;background-color:${COLOR}!important;color:#fff!important;-webkit-text-fill-color:#fff!important}
   .sc-a{align-self:flex-start;background:#f1f5f9;color:#111}
   .sc-src{font-size:11px;margin-top:4px}.sc-src a{color:${COLOR}!important}
+  .sc-ltr{direction:ltr;unicode-bidi:isolate}
   #sc-form{display:flex;border-top:1px solid #e5e7eb;background:#fff}
   #sc-in{flex:1;border:none;padding:11px 12px;font-size:13.5px;outline:none;background:#fff!important;color:#111!important;-webkit-text-fill-color:#111!important;opacity:1!important;visibility:visible!important}
   #sc-send{flex:0 0 auto;background:${COLOR}!important;background-color:${COLOR}!important;color:#fff!important;-webkit-text-fill-color:#fff!important;border:none;padding:0 16px;cursor:pointer;font-size:14px;line-height:1;opacity:.55;filter:saturate(.75);visibility:visible!important}
@@ -89,10 +90,30 @@
   var history = [];
   var greetingEl = null;
 
+  /* LTR tokens (phone numbers, emails, URLs) inside RTL answers get their
+     digit/letter groups reversed by the bidi algorithm when left as plain
+     text in a dir=rtl bubble. Render them in an isolated dir=ltr span so
+     they always read left-to-right; surrounding text stays untouched.
+     Everything is still appended as text nodes — no innerHTML parsing. */
+  function renderText(el, text) {
+    var token = /(\+\d[\d\s().-]{5,}\d)|([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)|((?:https?:\/\/|www\.)[^\s<]+)/g;
+    var last = 0, m;
+    while ((m = token.exec(text)) !== null) {
+      if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+      var span = document.createElement('span');
+      span.className = 'sc-ltr';
+      span.setAttribute('dir', 'ltr');
+      span.textContent = m[0];
+      el.appendChild(span);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+  }
+
   function addMsg(text, who, sources) {
     var d = document.createElement('div');
     d.className = 'sc-m ' + (who === 'u' ? 'sc-u' : 'sc-a');
-    d.textContent = text;
+    renderText(d, text);
     if (sources && sources.length) {
       var s = document.createElement('div');
       s.className = 'sc-src';
