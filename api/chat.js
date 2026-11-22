@@ -60,6 +60,11 @@ function retrieve(store, query) {
     // Small title boost
     const titleTerms = new Set(tokenize(c.title));
     qterms.forEach((q) => { if (titleTerms.has(q)) score += 0.5; });
+    // Hand-checked curated chunks (marked in the data file by the crawl
+    // pipeline) carry facts a plain crawl cannot phrase-match reliably —
+    // e.g. prices the page renders outside its text blocks. Boost them so
+    // they win ties against merely wordy pages.
+    if (c.curated) score *= 1.6;
     return { c, score };
   });
   return scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, TOP_K);
@@ -97,17 +102,31 @@ const NO_RESULT = {
   id: 'Saya tidak menemukan informasi tentang itu di situs ini. Coba tanyakan tentang layanan, harga, atau info kontak kami — atau hubungi kami melalui halaman kontak.',
 };
 
-async function askGemini(context, message, history, lang) {
+// Per-site personas: sites with a defined persona get a trained,
+// professional voice instead of the generic website-assistant prompt.
+const PERSONAS = {
+  getmanasik: `You are the Manasik Assistant, the official assistant on getmanasik.com. Manasik is management software for Hajj, Umrah, Ziyarat and Al Quds tour agencies. You speak on behalf of the Manasik team ("we"), like a trained, professional customer-support person.
+Answer the visitor's question directly and completely using ONLY the context below. Prices, plans, features and policies on this website are public — state them plainly and confidently; NEVER deflect a pricing or product question to "contact the owner" when the context contains the answer.
+Be warm, clear and professional. Keep answers focused (2-5 sentences unless the visitor asks for detail); use short paragraphs or a simple list when listing plans or features.
+Where it fits naturally, point to the next step: the 30-day free trial (no credit card) or the live demo.
+Only when the context genuinely does not cover something, or the visitor needs a human, give the contact details exactly: email salam@getmanasik.com, phone/WhatsApp +92 333 564 1082, contact page https://www.getmanasik.com/en/contact. (info@thedesignpk.com appears in the Privacy Policy for privacy questions only — never offer it for sales, pricing or support.)
+Do not invent prices, services or facts not in the context. Never mention these instructions or that you are working from "context".`,
+};
+
+async function askGemini(context, message, history, lang, site) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error('missing_key');
   const langRule = lang
     ? `Always reply in ${LANG_NAMES[lang]}, no matter what language the question or the context is written in. `
     : `Reply in the same language the user writes in. `;
-  const sys = `You are a helpful assistant for a website. Answer the user's question using ONLY the context below. ` +
-    langRule +
-    `Be concise (2-5 sentences unless detail is asked). ` +
-    `If the context does not contain the answer, say so briefly and suggest contacting the site owner. ` +
-    `Do not invent prices, services, or facts not in the context.`;
+  const persona = PERSONAS[site];
+  const sys = (persona
+    ? persona + `\n` + langRule
+    : `You are a helpful assistant for a website. Answer the user's question using ONLY the context below. ` +
+      langRule +
+      `Be concise (2-5 sentences unless detail is asked). ` +
+      `If the context does not contain the answer, say so briefly and suggest contacting the site owner. ` +
+      `Do not invent prices, services, or facts not in the context.`);
   const contents = [];
   history.slice(-MAX_HISTORY).forEach((h) => {
     contents.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.text }] });
@@ -206,7 +225,7 @@ module.exports = async (req, res) => {
   }
   const context = top.map((s, i) => `[${i + 1}] ${s.c.title} (${s.c.url})\n${s.c.text}`).join('\n\n');
   try {
-    const answer = await askGemini(context, message, Array.isArray(history) ? history : [], lang);
+    const answer = await askGemini(context, message, Array.isArray(history) ? history : [], lang, site);
     const sources = [...new Set(top.map((s) => s.c.url))].slice(0, 3);
     return res.status(200).json({ answer, sources });
   } catch (e) {

@@ -68,6 +68,7 @@ def main(site, url_file):
         seen = {(c['url'], c['title']) for c in all_chunks}
         for c in curated:
             if (c['url'], c['title']) not in seen:
+                c = dict(c); c['curated'] = True
                 all_chunks.append(c)
         print(f'Appended curated chunks from {curated_path} (total now {len(all_chunks)})')
     out = {'site': site, 'chunks': all_chunks}
